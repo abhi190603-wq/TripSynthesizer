@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { X, Calendar, Users, IndianRupee, MapPin, Check } from 'lucide-react';
+import { generateTripPlans, TripPlanRequest, TripPlan } from '../services/tripPlanner';
+import { TripPlansModal } from './TripPlansModal';
 
 interface TripModalProps {
   isOpen: boolean;
@@ -8,6 +10,9 @@ interface TripModalProps {
 
 export function TripModal({ isOpen, onClose }: TripModalProps) {
   const [step, setStep] = useState(1);
+  const [showPlans, setShowPlans] = useState(false);
+  const [plans, setPlans] = useState<TripPlan[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
   const [formData, setFormData] = useState({
     destination: '',
     startDate: '',
@@ -19,7 +24,7 @@ export function TripModal({ isOpen, onClose }: TripModalProps) {
     activities: [] as string[]
   });
 
-  if (!isOpen) return null;
+  if (!isOpen && !showPlans) return null;
 
   const handleNext = () => {
     if (step < 3) setStep(step + 1);
@@ -29,7 +34,26 @@ export function TripModal({ isOpen, onClose }: TripModalProps) {
     if (step > 1) setStep(step - 1);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setLoadingPlans(true);
+    const request: TripPlanRequest = {
+      destination: formData.destination,
+      startDate: formData.startDate,
+      endDate: formData.endDate,
+      budget: parseInt(formData.budget),
+      travelers: formData.travelers,
+      accommodation: formData.accommodation,
+      transport: formData.transport
+    };
+
+    const generatedPlans = await generateTripPlans(request);
+    setPlans(generatedPlans);
+    setLoadingPlans(false);
+    setShowPlans(true);
+  };
+
+  const handleClosePlans = () => {
+    setShowPlans(false);
     onClose();
     setStep(1);
     setFormData({
@@ -47,8 +71,10 @@ export function TripModal({ isOpen, onClose }: TripModalProps) {
   const activityOptions = ['Sightseeing', 'Adventure', 'Food Tour', 'Shopping', 'Beach', 'Mountains', 'Culture', 'Photography'];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <>
+      {!showPlans && isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Trip Synthesizer</h2>
@@ -72,13 +98,21 @@ export function TripModal({ isOpen, onClose }: TripModalProps) {
                   <MapPin size={16} className="inline mr-1" />
                   Destination
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formData.destination}
                   onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
-                  placeholder="e.g., Goa, Kerala, Jaipur"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
+                >
+                  <option value="">Select destination</option>
+                  <option value="Jaipur">Jaipur</option>
+                  <option value="Goa">Goa</option>
+                  <option value="Kerala">Kerala</option>
+                  <option value="Manali">Manali</option>
+                  <option value="Agra">Agra</option>
+                  <option value="Delhi">Delhi</option>
+                  <option value="Mumbai">Mumbai</option>
+                  <option value="Bangalore">Bangalore</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -272,7 +306,7 @@ export function TripModal({ isOpen, onClose }: TripModalProps) {
 
               <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
                 <p className="text-sm text-orange-800">
-                  🎉 Your trip plan looks amazing! Click "Save Trip" to add it to your itinerary.
+                  Your trip details look great! Click "Generate Plans" to see AI-powered itinerary options tailored to your budget.
                 </p>
               </div>
             </div>
@@ -298,13 +332,23 @@ export function TripModal({ isOpen, onClose }: TripModalProps) {
           ) : (
             <button
               onClick={handleSave}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all font-medium"
+              disabled={loadingPlans}
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all font-medium disabled:opacity-50"
             >
-              Save Trip
+              {loadingPlans ? 'Generating...' : 'Generate Plans'}
             </button>
           )}
+          </div>
         </div>
-      </div>
-    </div>
+        </div>
+      )}
+
+      <TripPlansModal
+        isOpen={showPlans}
+        onClose={handleClosePlans}
+        plans={plans}
+        loading={loadingPlans}
+      />
+    </>
   );
 }
